@@ -59,9 +59,8 @@ int mergeSortInversionCount(vi &arr){
 class Puzzle
 {
 private:
-    int size,step;
+    int size;
     vector<vi> table;
-    Puzzle* parent;
     pii blankPos;
     int manhattanDistance,hammingDistance;
     string path;
@@ -80,11 +79,12 @@ private:
         vector<vi> tempTable=table;
         swap(tempTable[prevRow][prevCol],tempTable[newRow][newCol]);
         int num=tempTable[prevRow][prevCol];
-        Puzzle tempPuzzle(size,tempTable,make_pair(newRow,newCol),this,step+1,path+move);
+        Puzzle tempPuzzle(size,tempTable,make_pair(newRow,newCol),path+move);
         pii pos=getSuitablePosition(num);
         if(pos.first==prevRow&&pos.second==prevCol)tempPuzzle.setHammingDistance(hammingDistance-1);
-        if(pos.first!=prevRow||pos.second!=prevCol){
+        else if(pos.first!=prevRow||pos.second!=prevCol){
             if(pos.first==newRow && pos.second==newCol)tempPuzzle.setHammingDistance(hammingDistance+1);
+            else tempPuzzle.setHammingDistance(hammingDistance);
         }
         tempPuzzle.setManhattanDistance(manhattanDistance-getSingleManhattanDistance(newRow,newCol)+tempPuzzle.getSingleManhattanDistance(prevRow,prevCol));
         return tempPuzzle;
@@ -103,38 +103,53 @@ private:
     void printHelper(Puzzle& puzzle){
         if(puzzle.path==""){
             puzzle.printTable();
+            cout<<endl;
             return;
         }
         else{
             vector<vi> tempTable=puzzle.table;
             int i=puzzle.blankPos.first,j=puzzle.blankPos.second;
+            pii newBlankPos;
             char last=puzzle.path[puzzle.path.length()-1];
-            if(last=='d')swap(tempTable[i][j],tempTable[i][j-1]);
-            else if(last=='u')swap(tempTable[i][j],tempTable[i][j+1]);
-            else if(last=='l')swap(tempTable[i][j],tempTable[i+1][j]);
-            else if(last=='r')swap(tempTable[i][j],tempTable[i-1][j]);
-            Puzzle tempPuzzle(size,tempTable,puzzle.blankPos,puzzle.parent,puzzle.step-1,puzzle.path.substr(0,puzzle.path.length()-1));
+            if(last=='R'){
+                swap(tempTable[i][j],tempTable[i][j-1]);
+                newBlankPos=make_pair(i,j-1);
+            }
+            else if(last=='L'){
+                swap(tempTable[i][j],tempTable[i][j+1]);
+                newBlankPos=make_pair(i,j+1);
+            }
+            else if(last=='U'){
+                swap(tempTable[i][j],tempTable[i+1][j]);
+                newBlankPos=make_pair(i+1,j);
+            }
+            else if(last=='D'){
+                swap(tempTable[i][j],tempTable[i-1][j]);
+                newBlankPos=make_pair(i-1,j);
+            }
+            Puzzle tempPuzzle(size,tempTable,newBlankPos,puzzle.path.substr(0,puzzle.path.length()-1));
+            printHelper(tempPuzzle);
+            puzzle.printTable();
+            cout<<endl;
         }
     }
 
 public:
-    Puzzle(int size,vector<vi> table, pii blankPos, Puzzle* parent,int step=0,string path=""){
+    Puzzle(int size,vector<vi> table, pii blankPos,string path=""){
         this->size=size;
         this->table=table;
-        this->parent=parent;
         this->blankPos=blankPos;
-        this->step=step;
         this->path=path;
     }
-    Puzzle(const Puzzle &puzzle){
-        this->size=puzzle.size;
-        this->table=puzzle.table;
-        this->parent=puzzle.parent;
-        this->blankPos=puzzle.blankPos;
-        this->hammingDistance=puzzle.hammingDistance;
-        this->manhattanDistance=puzzle.manhattanDistance;
-        this->step=puzzle.step;
-    }
+    // Puzzle(const Puzzle &puzzle){
+    //     this->size=puzzle.size;
+    //     this->table=puzzle.table;
+    //     this->parent=puzzle.parent;
+    //     this->blankPos=puzzle.blankPos;
+    //     this->hammingDistance=puzzle.hammingDistance;
+    //     this->manhattanDistance=puzzle.manhattanDistance;
+    //     this->step=puzzle.step;
+    // }
     void setManhattanDistance(int distance){
         manhattanDistance=distance;
     }
@@ -148,7 +163,7 @@ public:
         return hammingDistance;
     }
     int getStep(){
-        return step;
+        return path.length();
     }
     void printTable(){
         for(int i=0;i<size;i++){
@@ -160,24 +175,23 @@ public:
     }
 
     vector<Puzzle> getNeighbors(){
-        if(parent==this)cout<<"Here also fucked"<<endl;
         int i=blankPos.first,j=blankPos.second;
         vector<Puzzle> neighbours;
-        if(i-1>=0)neighbours.push_back(getNewPuzzle(i,j,i-1,j,'l'));
-        if(i+1<size)neighbours.push_back(getNewPuzzle(i,j,i+1,j,'r'));
-        if(j-1>=0)neighbours.push_back(getNewPuzzle(i,j,i,j-1,'u'));
-        if(j+1<size)neighbours.push_back(getNewPuzzle(i,j,i,j+1,'d'));
+        char last=' ';
+        if(path.length())last=path[path.length()-1];
+        if(i-1>=0 && last!='D')neighbours.push_back(getNewPuzzle(i,j,i-1,j,'U'));
+        if(i+1<size && last!='U')neighbours.push_back(getNewPuzzle(i,j,i+1,j,'D'));
+        if(j-1>=0 && last!='R')neighbours.push_back(getNewPuzzle(i,j,i,j-1,'L'));
+        if(j+1<size && last!='L')neighbours.push_back(getNewPuzzle(i,j,i,j+1,'R'));
         return neighbours;
     }
 
     void printFullPath(){
-        cout<<"Printing table: "<<endl;
-        printTable();
-        if(parent==this){
-            cout<<"Everything is fucked"<<endl;
-            return;
-        };
-        if(parent!=nullptr)parent->printFullPath();
+        // cout<<"Printing table: "<<endl;
+        // printTable();
+        // if(parent!=nullptr)parent->printFullPath();
+        cout<<"Best Move Sequence: "<<path<<endl<<endl;
+        printHelper(*this);
     }
     bool checkValidity(){
         int inversionCount=getInversionCount();
@@ -196,7 +210,7 @@ class ManhattanCompare
 {
 public:
     bool operator() (Puzzle& puzzle1, Puzzle& puzzle2){
-        if(puzzle1.getManhattanDistance()>puzzle2.getManhattanDistance())return true;
+        if(puzzle1.getManhattanDistance()+puzzle1.getStep()>puzzle2.getManhattanDistance()+puzzle2.getStep())return true;
         else return false;
     }
 };
@@ -205,17 +219,16 @@ class HammingCompare
 {
 public:
     bool operator() (Puzzle& puzzle1, Puzzle& puzzle2){
-        if(puzzle1.getHammingDistance()>puzzle2.getHammingDistance())return true;
+        if(puzzle1.getHammingDistance()+puzzle1.getStep()>puzzle2.getHammingDistance()+puzzle2.getStep())return true;
         else return false;
     }
 };
 
 void getManhattanResult(priority_queue<Puzzle,vector<Puzzle>,ManhattanCompare> queue){
     int expanded=0,explored=0;
-    vector<Puzzle> stack;
+    cout<<"Getting Solution for Manhattan Distance: "<<endl<<endl;
     while(!queue.empty()){
         Puzzle puzzle=queue.top();
-        puzzle.printFullPath();
         queue.pop();
         if(!puzzle.getManhattanDistance()){
             cout<<"Expanded: "<<expanded<<endl;
@@ -228,26 +241,22 @@ void getManhattanResult(priority_queue<Puzzle,vector<Puzzle>,ManhattanCompare> q
         for(auto neighbour:neighbours){
             explored++;
             queue.push(neighbour);
-            cout<<"Explored:"<<explored<<endl;
-            neighbour.printFullPath();
         }
         expanded++;
-        stack.push_back(puzzle);
     }
 }
 
 void getHammingResult(priority_queue<Puzzle,vector<Puzzle>,HammingCompare> queue){
     int expanded=0,explored=0;
+    cout<<"Getting Solution for Hamming Distance: "<<endl<<endl;
     while(!queue.empty()){
         Puzzle puzzle=queue.top();
         queue.pop();
-        cout<<"Expanded:"<<expanded<<endl;
-        puzzle.printFullPath();
         if(puzzle.getHammingDistance()==0){
             cout<<"Expanded: "<<expanded<<endl;
             cout<<"Explored: "<<explored<<endl;
             cout<<"Optimized Step Numbers: "<<puzzle.getStep()<<endl;
-            // puzzle.printFullPath();
+            puzzle.printFullPath();
             return;
         }
         vector<Puzzle> neighbours=puzzle.getNeighbors();
@@ -256,6 +265,7 @@ void getHammingResult(priority_queue<Puzzle,vector<Puzzle>,HammingCompare> queue
             queue.push(neighbour);
         }
         expanded++;
+        
     }
 }
 
@@ -285,7 +295,7 @@ int main(){
         }
         
     }
-    Puzzle initState(k,table,blankPos,nullptr);
+    Puzzle initState(k,table,blankPos);
     if(initState.checkValidity()){
         priority_queue<Puzzle,vector<Puzzle>,ManhattanCompare> manhattanQueue;
         priority_queue<Puzzle,vector<Puzzle>,HammingCompare> hammingQueue;
