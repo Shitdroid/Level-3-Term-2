@@ -1,8 +1,10 @@
 package Server;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.net.ServerSocket;
 import java.util.HashMap;
+import java.util.Scanner;
 
 import util.NetworkUtil;
 
@@ -15,33 +17,40 @@ public class Server {
 
     public static void main(String[] args) {
         users = new HashMap<>();
+        requests = new HashMap<>();
+        try {
+            Scanner scanner = new Scanner(new File("src/Server/users.txt"));
+            int i = 0;
+            while (scanner.hasNextLine()) {
+                String name = scanner.nextLine();
+                users.put(name, new User(name, i, null, false));
+                i++;
+            }
+            scanner.close();
+            Scanner scanner2 = new Scanner(new File("src/Server/Requests.txt"));
+            while (scanner2.hasNextLine()) {
+                String num = scanner2.nextLine();
+                i = Integer.parseInt(num);
+                String desc = scanner2.nextLine();
+                String name = scanner2.nextLine();
+                requests.put(i, new Request(i, desc, name));
+            }
+        } catch (FileNotFoundException e1) {
+            File file1 = new File("src/Server/users.txt");
+            File file2 = new File("src/Server/Requests.txt");
+            try {
+                if (!file1.exists())
+                    file1.createNewFile();
+                if (!file2.exists())
+                    file2.createNewFile();
+            } catch (Exception e) {
+                System.out.println("Server throws:" + e);
+            }
+        }
         try {
             serverSocket = new ServerSocket(33333);
             while (true) {
-                NetworkUtil connection = new NetworkUtil(serverSocket.accept());
-                System.out.println("Got some connection req");
-                String name = (String) connection.read();
-                User user = users.get(name);
-                while (user != null && user.isActive()) {
-                    System.out.println("User already online");
-                    connection.write("User already online");
-                    name = (String) connection.read();
-                    user = users.get(name);
-                }
-                if (user == null) {
-                    user = new User(name, users.size(), connection);
-                    users.put(name, user);
-                    File file = new File("src/Server/Files/" + user.getId() + "/public");
-                    while (!file.mkdirs())
-                        ;
-                    file = new File("src/Server/Files/" + user.getId() + "/private");
-                    while (!file.mkdir())
-                        ;
-                } else {
-                    user.setNetworkUtil(connection);
-                    user.setActive(true);
-                }
-                new ServerToClientThread(user);
+                new ServerToClientThread(new NetworkUtil(serverSocket.accept()));
             }
         } catch (Exception e) {
             System.out.println("Server throws:" + e);

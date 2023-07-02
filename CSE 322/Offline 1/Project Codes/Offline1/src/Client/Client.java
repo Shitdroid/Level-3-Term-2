@@ -24,6 +24,7 @@ public class Client {
         File file = new File(filePath);
         if (!file.exists()) {
             System.out.println("Directory does not exist");
+            connection.write("doNothing");
             return;
         }
 
@@ -36,11 +37,13 @@ public class Client {
         connection.write(name);
         connection.write(fileName);
         Object object = connection.read();
-        if (object instanceof String) {
+        if (((String) object).equalsIgnoreCase("File Does Not Exist")
+                || ((String) object).equalsIgnoreCase("User does not exist")) {
+            connection.write("doNothing");
             System.out.println((String) object);
             return;
         }
-        int chunkSize = (int) object;
+        int chunkSize = (int) connection.read();
         byte[] buffer = new byte[chunkSize];
         BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(file));
         while ((object = connection.read()) instanceof byte[]) {
@@ -59,18 +62,19 @@ public class Client {
         File file = new File(filePath);
         if (!file.exists()) {
             System.out.println("File does not exist");
+            connection.write("doNothing");
             return;
         }
         connection.write("uploadFile");
         connection.write(fileType);
         connection.write(file.getName());
         String res = (String) connection.read();
-        if (res != "OK") {
+        if (!res.equalsIgnoreCase("OK")) {
             System.out.println(res);
             return;
         }
-        connection.write(file.length());
-        if ((String) connection.read() == "File size too large") {
+        connection.write((int) file.length());
+        if (((String) connection.read()).equalsIgnoreCase("File size too large")) {
             System.out.println("File size too large");
             return;
         }
@@ -112,9 +116,9 @@ public class Client {
                 connection.write(name);
             }
             System.out.println("Connected to server");
-            System.out.println((String) connection.read());
             while (true) {
-                System.out.println((String) connection.read());
+                res = (String) connection.read();
+                System.out.println(res);
                 System.out.println("Enter your command:");
                 System.out.println(
                         "1. Get List of Users\n2. Look Up your files list\n3. Look Up a user's public files list\n4.Make a file request\n5.See all requests\n6.Fill a request\n7. Upload a file\n8. See all your messages\n9. Log Out & Exit");
@@ -134,18 +138,24 @@ public class Client {
                     case 2:
                         connection.write("getOwnFileList");
                         int privateFileNumber = (int) connection.read();
-                        System.out.println("You have " + privateFileNumber + " files");
+                        System.out.println("You have " + privateFileNumber + " private files");
                         for (int i = 0; i < privateFileNumber; i++)
                             System.out.println((String) connection.read());
                         int publicFileNumber = (int) connection.read();
                         System.out.println("You have " + publicFileNumber + " public files");
                         for (int i = 0; i < publicFileNumber; i++)
                             System.out.println((String) connection.read());
+                        if(privateFileNumber == 0 && publicFileNumber == 0){
+                            connection.write("doNothing");
+                            break;
+                        }
                         System.out.println("Do you want to download any file? (y/n)");
                         String ans = scn.next();
                         if (ans.equals("y"))
                             downloadFile(connection, scn, name);
-
+                        else {
+                            connection.write("doNothing");
+                        }
                         break;
                     case 3:
                         connection.write("getOtherFileList");
@@ -161,10 +171,16 @@ public class Client {
                         System.out.println(userName + " has " + otherPublicFileNumber + " public files");
                         for (int i = 0; i < otherPublicFileNumber; i++)
                             System.out.println((String) connection.read());
+                        if (otherPublicFileNumber == 0){
+                            connection.write("doNothing");
+                            break;
+                        }
                         System.out.println("Do you want to download any file? (y/n)");
                         ans = scn.next();
                         if (ans.equals("y"))
                             downloadFile(connection, scn, userName);
+                        else
+                            connection.write("doNothing");
                         break;
                     case 4:
                         connection.write("makeRequest");
@@ -184,8 +200,8 @@ public class Client {
                     case 6:
                         connection.write("fillRequest");
                         System.out.println("Enter the request id:");
-                        connection.write(scn.next());
-                        if ((String) connection.read() == "Invalid request id") {
+                        connection.write(scn.nextInt());
+                        if (((String) connection.read()).equalsIgnoreCase("Invalid request id")) {
                             System.out.println("Invalid request id");
                             break;
                         }
@@ -214,6 +230,7 @@ public class Client {
                         System.exit(0);
                         break;
                 }
+                Thread.sleep(3000);
             }
         } catch (Exception e) {
             e.printStackTrace();

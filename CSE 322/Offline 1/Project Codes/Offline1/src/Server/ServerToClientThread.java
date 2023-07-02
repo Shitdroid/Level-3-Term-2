@@ -2,9 +2,11 @@ package Server;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Random;
 
@@ -15,11 +17,21 @@ public class ServerToClientThread implements Runnable {
     private User user;
     private NetworkUtil connection;
 
-    ServerToClientThread(User user) {
-        this.user = user;
+    ServerToClientThread(NetworkUtil connection) {
         thread = new Thread(this);
-        connection = user.getNetworkUtil();
+        this.connection = connection;
         thread.start();
+    }
+
+    private void writeToFile(String s, String fileName) {
+        try {
+            BufferedWriter writer = new BufferedWriter(new FileWriter(fileName, true));
+            writer.write(s);
+            writer.newLine();
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private boolean acceptFile() throws IOException, ClassNotFoundException {
@@ -57,13 +69,13 @@ public class ServerToClientThread implements Runnable {
                 readSize += currentChunkSize;
             }
             if (object instanceof String) {
-                if ((String) object == "Timeout") {
+                if (((String) object).equalsIgnoreCase("Timeout")) {
                     System.out.println("Timeout");
                     file.delete();
                     Server.currentBufferSize -= fileSize;
                     bos.close();
                     return false;
-                } else if ((String) object == "File upload successful") {
+                } else if (((String) object).equalsIgnoreCase("File upload successful")) {
                     if (fileSize != readSize) {
                         System.out.println("File upload unsuccessful");
                         file.delete();
@@ -88,7 +100,7 @@ public class ServerToClientThread implements Runnable {
         String name = (String) connection.read();
         String fileName = (String) connection.read();
         File file;
-        if (name == user.getName()) {
+        if (name.equalsIgnoreCase(user.getName())) {
             file = new File("src/Server/Files/" + user.getId() + "/private/" + fileName);
             if (!file.exists()) {
                 file = new File("src/Server/Files/" + user.getId() + "/public/" + fileName);
@@ -110,6 +122,7 @@ public class ServerToClientThread implements Runnable {
                 }
             }
         }
+        connection.write("OK");
         connection.write(Server.MAX_CHUNK_SIZE);
         BufferedInputStream bos = new BufferedInputStream(new FileInputStream(file));
         byte[] buffer = new byte[Server.MAX_CHUNK_SIZE];
@@ -135,16 +148,42 @@ public class ServerToClientThread implements Runnable {
     @Override
     public void run() {
         try {
+            System.out.println("Got some connection req");
+            String name = (String) connection.read();
+            user = Server.users.get(name);
+            while (user != null && user.isActive()) {
+                System.out.println("User already online");
+                connection.write("User already online");
+                name = (String) connection.read();
+                user = Server.users.get(name);
+            }
+            if (user == null) {
+                user = new User(name, Server.users.size(), connection);
+                writeToFile(name, "src/Server/users.txt");
+                Server.users.put(name, user);
+                File file = new File("src/Server/Files/" + user.getId() + "/public");
+                while (!file.mkdirs())
+                    ;
+                file = new File("src/Server/Files/" + user.getId() + "/private");
+                while (!file.mkdir())
+                    ;
+            } else {
+                user.setNetworkUtil(connection);
+                user.setActive(true);
+            }
             System.out.println("Connected to " + user.getName());
             connection.write("Connected to server");
             while (true) {
-                connection.write("You have " + user.getMessages().size() + "unread messages");
+                connection.write("You have " + user.getMessages().size() + " unread messages");
                 String command = (String) connection.read();
                 switch (command) {
                     case "getUsers":
                         connection.write(Server.users.size());
                         for (User user : Server.users.values()) {
-                            connection.write(user.getName());
+                            if (user.isActive())
+                                connection.write(user.getName() + "(Online)");
+                            else
+                                connection.write(user.getName() + "(Offline)");
                         }
                         break;
                     case "getOwnFileList":
@@ -160,6 +199,8 @@ public class ServerToClientThread implements Runnable {
                         for (File file : publicFiles) {
                             connection.write(file.getName());
                         }
+                        if (((String) connection.read()).equalsIgnoreCase("downloadFile"))
+                            sendFile();
                         break;
                     case "getOtherFileList":
                         User otherUser = Server.users.get((String) connection.read());
@@ -169,6 +210,8 @@ public class ServerToClientThread implements Runnable {
                         for (File file : otherPublicFiles) {
                             connection.write(file.getName());
                         }
+                        if (((String) connection.read()).equalsIgnoreCase("downloadFile"))
+                            sendFile();
                         break;
                     case "makeRequest":
                         Random random = new Random();
@@ -176,11 +219,16 @@ public class ServerToClientThread implements Runnable {
                         while (Server.requests.containsKey(id)) {
                             id = random.nextInt();
                         }
-                        Request req = new Request(id, (String) connection.read(), user.getName());
+                        String description = (String) connection.read();
+                        Request req = new Request(id, description, user.getName());
+                        writeToFile(Integer.toString(id), "src/Server/Requests.txt");
+                        writeToFile(description, "src/Server/Requests.txt");
+                        writeToFile(user.getName(), "src/Server/Requests.txt");
                         Server.requests.put(id, req);
                         for (User user : Server.users.values()) {
                             user.addMessage(req.toString());
                         }
+                        connection.write("Request made successfully");
                         break;
                     case "getRequests":
                         connection.write(Server.requests.size());
@@ -216,6 +264,8 @@ public class ServerToClientThread implements Runnable {
                     case "logout":
                         logOut();
                         return;
+                    case "doNothing":
+                        break;
                 }
             }
         } catch (IOException e1) {

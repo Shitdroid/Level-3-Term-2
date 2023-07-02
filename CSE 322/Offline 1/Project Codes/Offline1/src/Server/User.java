@@ -15,6 +15,13 @@ public class User {
         this.active = true;
         this.messages = new Vector<>();
     }
+    public User(String name,int id,NetworkUtil networkUtil, boolean active) {
+        this.networkUtil = networkUtil;
+        this.id = id;
+        this.name = name;
+        this.active = active;
+        this.messages = new Vector<>();
+    }
     public Vector<String> getMessages() {
         return messages;
     }
