@@ -1,0 +1,9 @@
+1. Network Layer
+    a. Read upto DVR LSR from Shattik's Chotha
+    b. Read the full handwritten notes from sir about DVR LSR, OSPF etc.
+    c. Read the slide with handnotes
+
+2. Transport Layer
+    a. Read the slide with handnotes
+    b. Read the Extra two slides
+
