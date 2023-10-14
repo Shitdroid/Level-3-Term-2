@@ -1,0 +1,12 @@
+From Shattik
+
+IntroAI
+IntAgent
+ProbSol
+UninformedSearch
+InformedSearch
+LocalSearch
+Alternate_Learn (simulated annealing)
+Genetic Algorithm
+AdvSearch
+CSP
